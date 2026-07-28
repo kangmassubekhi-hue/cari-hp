@@ -88,6 +88,7 @@ class ListenerThread(threading.Thread):
         last_clap_time = 0.0
         first_clap_time = None
         loop_count = 0
+        recent_max = 0
 
         while self._running.is_set():
             try:
@@ -108,8 +109,12 @@ class ListenerThread(threading.Thread):
                 if amp > peak:
                     peak = amp
 
+            if peak > recent_max:
+                recent_max = peak
+
             if loop_count % 8 == 0:
-                self.on_status(f"Mendengarkan... level: {peak}")
+                self.on_status(f"Mendengarkan... puncak baru-baru ini: {recent_max}")
+                recent_max = 0
 
             now = time.time()
 
