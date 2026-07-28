@@ -48,6 +48,7 @@ class ListenerThread(threading.Thread):
         self._running = threading.Event()
         self._running.set()
         self.audio_record = None
+        self.suppress_until = 0
 
     def stop(self):
         self._running.clear()
@@ -113,7 +114,8 @@ class ListenerThread(threading.Thread):
                 recent_max = peak
 
             if loop_count % 8 == 0:
-                self.on_status(f"Mendengarkan... puncak baru-baru ini: {recent_max}")
+                if time.time() >= self.suppress_until:
+                    self.on_status(f"Mendengarkan... puncak baru-baru ini: {recent_max}")
                 recent_max = 0
 
             now = time.time()
@@ -253,6 +255,8 @@ class FinderUI(BoxLayout):
 
     @mainthread
     def on_clap(self):
+        if self.listener:
+            self.listener.suppress_until = time.time() + 5
         try:
             play_alarm()
             self.status_label.text = "Status: TERDETEKSI! Alarm bunyi..."
