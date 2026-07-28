@@ -1,7 +1,5 @@
 """
-Cari HP (Phone Finder) - Fase 1
-Dengarkan tepukan tangan lewat mic, lalu bunyikan alarm keras
-lewat stream ALARM (nembus mode hening/silent).
+Cari HP (Phone Finder) - Fase 1 (dengan status level suara)
 """
 
 import struct
@@ -34,18 +32,17 @@ if IS_ANDROID:
 
 
 SAMPLE_RATE = 44100
-DEFAULT_THRESHOLD = 9000   # ambang volume deteksi tepukan (0-32767)
-CLAP_WINDOW = 1.5          # jeda maksimal antar tepukan 1 & 2 (detik)
-CLAP_DEBOUNCE = 0.15       # jeda minimal biar 1 tepukan gak kehitung dobel
-ALARM_DURATION = 30        # lama alarm berbunyi (detik)
+DEFAULT_THRESHOLD = 4500
+CLAP_WINDOW = 1.5
+CLAP_DEBOUNCE = 0.15
+ALARM_DURATION = 30
 
 
 class ListenerThread(threading.Thread):
-    """Terus mendengarkan lewat mic, deteksi pola tepuk 2x berturut-turut."""
-
-    def __init__(self, on_clap_detected, threshold=DEFAULT_THRESHOLD):
+    def __init__(self, on_clap_detected, on_status, threshold=DEFAULT_THRESHOLD):
         super().__init__(daemon=True)
         self.on_clap_detected = on_clap_detected
+        self.on_status = on_status
         self.threshold = threshold
         self._running = threading.Event()
         self._running.set()
@@ -58,35 +55,51 @@ class ListenerThread(threading.Thread):
         if not IS_ANDROID:
             return
 
-        channel_config = AudioFormat.CHANNEL_IN_MONO
-        audio_format = AudioFormat.ENCODING_PCM_16BIT
-        min_buffer = AudioRecord.getMinBufferSize(SAMPLE_RATE, channel_config, audio_format)
-        buffer_size = max(min_buffer, 2048)
-
-        self.audio_record = AudioRecord(
-            MediaRecorder.AudioSource.MIC,
-            SAMPLE_RATE,
-            channel_config,
-            audio_format,
-            buffer_size,
-        )
-
         try:
+            channel_config = AudioFormat.CHANNEL_IN_MONO
+            audio_format = AudioFormat.ENCODING_PCM_16BIT
+            min_buffer = AudioRecord.getMinBufferSize(SAMPLE_RATE, channel_config, audio_format)
+            buffer_size = max(min_buffer, 2048)
+
+            self.audio_record = AudioRecord(
+                MediaRecorder.AudioSource.MIC,
+                SAMPLE_RATE,
+                channel_config,
+                audio_format,
+                buffer_size,
+            )
+
+            if self.audio_record.getState() != AudioRecord.STATE_INITIALIZED:
+                self.on_status(f"Status: GAGAL siapkan mic (state={self.audio_record.getState()})")
+                return
+
             self.audio_record.startRecording()
+
+            if self.audio_record.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING:
+                self.on_status("Status: GAGAL mulai rekam")
+                return
+
         except Exception as exc:
-            print(f"[CariHP] Gagal mulai rekam: {exc}")
+            self.on_status(f"Status: ERROR - {exc}")
             return
 
         buf = bytearray(buffer_size)
         last_clap_time = 0.0
         first_clap_time = None
+        loop_count = 0
 
         while self._running.is_set():
-            read = self.audio_record.read(buf, 0, buffer_size)
+            try:
+                read = self.audio_record.read(buf, 0, buffer_size)
+            except Exception as exc:
+                self.on_status(f"Status: ERROR baca mic - {exc}")
+                return
+
             if read <= 0:
                 continue
 
-            # Cari amplitudo tertinggi di buffer ini (PCM 16-bit signed, little-endian)
+            loop_count += 1
+
             peak = 0
             for i in range(0, read - 1, 2):
                 sample = struct.unpack_from("<h", buf, i)[0]
@@ -94,14 +107,17 @@ class ListenerThread(threading.Thread):
                 if amp > peak:
                     peak = amp
 
+            if loop_count % 8 == 0:
+                self.on_status(f"Mendengarkan... level: {peak}")
+
             now = time.time()
 
             if peak >= self.threshold and (now - last_clap_time) > CLAP_DEBOUNCE:
                 last_clap_time = now
                 if first_clap_time is None or (now - first_clap_time) > CLAP_WINDOW:
-                    first_clap_time = now  # ini tepukan pertama
+                    first_clap_time = now
                 else:
-                    first_clap_time = None  # ini tepukan kedua -> trigger
+                    first_clap_time = None
                     self.on_clap_detected()
 
         try:
@@ -112,7 +128,6 @@ class ListenerThread(threading.Thread):
 
 
 def play_alarm():
-    """Putar suara alarm bawaan sistem lewat stream ALARM (nembus mode hening)."""
     if not IS_ANDROID:
         print("[CariHP] (simulasi) ALARM BERBUNYI!")
         return
@@ -158,7 +173,7 @@ class FinderUI(BoxLayout):
         self.sensitivity_label = Label(text=f"Sensitivitas: {self.threshold}")
         self.add_widget(self.sensitivity_label)
 
-        slider = Slider(min=3000, max=20000, value=self.threshold, step=500)
+        slider = Slider(min=1000, max=15000, value=self.threshold, step=500)
         slider.bind(value=self.on_slider_change)
         self.add_widget(slider)
 
@@ -168,9 +183,9 @@ class FinderUI(BoxLayout):
 
         info = Label(
             text=(
-                "Tepuk tangan 2x cepat untuk membunyikan alarm.\n"
-                "HP tetap bunyi walau mode hening aktif.\n"
-                "(Fase 1: jaga app tetap terbuka/diminimize)"
+                "Perhatikan angka 'level' di status.\n"
+                "Kalau angkanya diam terus walau ada suara,\n"
+                "berarti mic-nya yang bermasalah."
             ),
             font_size="14sp",
         )
@@ -208,10 +223,14 @@ class FinderUI(BoxLayout):
             self.wake_lock = power_manager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "CariHP::Listener")
             self.wake_lock.acquire()
 
-        self.listener = ListenerThread(self.on_clap, threshold=self.threshold)
+        self.listener = ListenerThread(self.on_clap, self.set_status, threshold=self.threshold)
         self.listener.start()
-        self.status_label.text = "Status: mendengarkan..."
+        self.status_label.text = "Status: menyiapkan mic..."
         self.toggle_btn.text = "Berhenti"
+
+    @mainthread
+    def set_status(self, text):
+        self.status_label.text = text
 
     def stop_listening(self):
         if self.listener:
