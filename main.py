@@ -23,6 +23,7 @@ if IS_ANDROID:
     AudioRecord = autoclass("android.media.AudioRecord")
     AudioFormat = autoclass("android.media.AudioFormat")
     MediaRecorder = autoclass("android.media.MediaRecorder")
+    AudioSource = autoclass("android.media.MediaRecorder$AudioSource")
     MediaPlayer = autoclass("android.media.MediaPlayer")
     AudioManager = autoclass("android.media.AudioManager")
     RingtoneManager = autoclass("android.media.RingtoneManager")
@@ -62,7 +63,7 @@ class ListenerThread(threading.Thread):
             buffer_size = max(min_buffer, 2048)
 
             self.audio_record = AudioRecord(
-                MediaRecorder.AudioSource.MIC,
+                AudioSource.MIC,
                 SAMPLE_RATE,
                 channel_config,
                 audio_format,
