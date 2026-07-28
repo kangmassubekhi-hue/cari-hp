@@ -248,8 +248,11 @@ class FinderUI(BoxLayout):
 
     @mainthread
     def on_clap(self):
-        self.status_label.text = "Status: TERDETEKSI! Alarm bunyi..."
-        play_alarm()
+        try:
+            play_alarm()
+            self.status_label.text = "Status: TERDETEKSI! Alarm bunyi..."
+        except Exception as exc:
+            self.status_label.text = f"Status: GAGAL alarm - {exc}"
         Clock.schedule_once(
             lambda dt: setattr(self.status_label, "text", "Status: mendengarkan..."),
             ALARM_DURATION,
