@@ -49,6 +49,8 @@ class ListenerThread(threading.Thread):
         self._running.set()
         self.audio_record = None
         self.suppress_until = 0
+        self.overall_max = 0
+        self.clap_count = 0
 
     def stop(self):
         self._running.clear()
@@ -112,6 +114,8 @@ class ListenerThread(threading.Thread):
 
             if peak > recent_max:
                 recent_max = peak
+            if peak > self.overall_max:
+                self.overall_max = peak
 
             if loop_count % 8 == 0:
                 if time.time() >= self.suppress_until:
@@ -126,6 +130,7 @@ class ListenerThread(threading.Thread):
                     first_clap_time = now
                 else:
                     first_clap_time = None
+                    self.clap_count += 1
                     self.on_clap_detected()
 
         try:
@@ -177,6 +182,16 @@ class FinderUI(BoxLayout):
 
         self.status_label = Label(text="Status: berhenti", font_size="20sp")
         self.add_widget(self.status_label)
+
+        self.peak_label = Label(
+            text="Puncak tertinggi sesi ini: -", font_size="18sp", color=(1, 1, 0, 1)
+        )
+        self.add_widget(self.peak_label)
+
+        self.count_label = Label(
+            text="Terdeteksi: 0x", font_size="18sp", color=(1, 1, 0, 1)
+        )
+        self.add_widget(self.count_label)
 
         self.sensitivity_label = Label(text=f"Sensitivitas: {self.threshold}")
         self.add_widget(self.sensitivity_label)
@@ -235,6 +250,15 @@ class FinderUI(BoxLayout):
         self.listener.start()
         self.status_label.text = "Status: menyiapkan mic..."
         self.toggle_btn.text = "Berhenti"
+        self.peak_label.text = "Puncak tertinggi sesi ini: -"
+        self.count_label.text = "Terdeteksi: 0x"
+        Clock.schedule_interval(self.refresh_stats, 0.5)
+
+    def refresh_stats(self, dt):
+        if not self.listener:
+            return False
+        self.peak_label.text = f"Puncak tertinggi sesi ini: {self.listener.overall_max}"
+        self.count_label.text = f"Terdeteksi: {self.listener.clap_count}x"
 
     @mainthread
     def set_status(self, text):
