@@ -2,9 +2,12 @@
 Cari HP (Phone Finder) - Fase 1 (dengan status level suara)
 """
 
+import math
+import os
 import struct
 import threading
 import time
+import wave
 
 from kivy.app import App
 from kivy.clock import Clock, mainthread
@@ -26,7 +29,6 @@ if IS_ANDROID:
     AudioSource = autoclass("android.media.MediaRecorder$AudioSource")
     MediaPlayer = autoclass("android.media.MediaPlayer")
     AudioManager = autoclass("android.media.AudioManager")
-    RingtoneManager = autoclass("android.media.RingtoneManager")
     PythonActivity = autoclass("org.kivy.android.PythonActivity")
     PowerManager = autoclass("android.os.PowerManager")
     Context = autoclass("android.content.Context")
@@ -140,10 +142,40 @@ class ListenerThread(threading.Thread):
             pass
 
 
+def generate_siren_wav(path):
+    sample_rate = 44100
+    duration = 3.0
+    freq_low, freq_high = 600, 1000
+    switch = 0.3
+    n_samples = int(sample_rate * duration)
+    frames = bytearray()
+    for i in range(n_samples):
+        t = i / sample_rate
+        freq = freq_low if (t % (switch * 2)) < switch else freq_high
+        val = int(math.sin(2 * math.pi * freq * t) * 32767 * 0.8)
+        frames += struct.pack("<h", val)
+
+    with wave.open(path, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(bytes(frames))
+
+
+def ensure_alarm_file():
+    app = App.get_running_app()
+    path = os.path.join(app.user_data_dir, "alarm_sound.wav")
+    if not os.path.exists(path):
+        generate_siren_wav(path)
+    return path
+
+
 def play_alarm():
     if not IS_ANDROID:
         print("[CariHP] (simulasi) ALARM BERBUNYI!")
         return
+
+    path = ensure_alarm_file()
 
     activity = PythonActivity.mActivity
 
@@ -151,13 +183,9 @@ def play_alarm():
     max_vol = audio_manager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
     audio_manager.setStreamVolume(AudioManager.STREAM_ALARM, max_vol, 0)
 
-    alarm_uri = RingtoneManager.getActualDefaultRingtoneUri(activity, RingtoneManager.TYPE_ALARM)
-    if alarm_uri is None:
-        alarm_uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-
     player = MediaPlayer()
     player.setAudioStreamType(AudioManager.STREAM_ALARM)
-    player.setDataSource(activity, alarm_uri)
+    player.setDataSource(path)
     player.setLooping(True)
     player.prepare()
     player.start()
