@@ -180,7 +180,10 @@ class FinderUI(BoxLayout):
         self.wake_lock = None
         self.threshold = DEFAULT_THRESHOLD
 
-        self.status_label = Label(text="Status: berhenti", font_size="20sp")
+        self.status_label = Label(text="Status: berhenti", font_size="20sp", halign="center")
+        self.status_label.bind(
+            width=lambda inst, w: setattr(inst, "text_size", (w * 0.9, None))
+        )
         self.add_widget(self.status_label)
 
         self.peak_label = Label(
