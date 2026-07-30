@@ -24,7 +24,7 @@ jobs:
           echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
 
       - name: Install Buildozer
-        run: pip install "buildozer<1.6.0"
+        run: pip install "buildozer<1.6.0" cython
 
       - name: Build APK
         run: yes | buildozer android debug
