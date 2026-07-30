@@ -8,7 +8,12 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    env:
+      PIP_CONSTRAINT: /tmp/pip-constraint.txt
     steps:
+      - name: Create pip constraint file
+        run: echo "pip==24.0" > /tmp/pip-constraint.txt
+
       - name: Checkout
         uses: actions/checkout@v4
 
