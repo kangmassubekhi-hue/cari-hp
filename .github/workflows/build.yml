@@ -24,7 +24,7 @@ jobs:
           echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
 
       - name: Install Buildozer
-        run: pip install --upgrade buildozer
+        run: pip install "buildozer<1.6.0"
 
       - name: Build APK
         run: yes | buildozer android debug
