@@ -35,7 +35,7 @@ if IS_ANDROID:
 
 
 SAMPLE_RATE = 44100
-DEFAULT_THRESHOLD = 4500
+DEFAULT_THRESHOLD = 10000
 CLAP_WINDOW = 1.5
 CLAP_DEBOUNCE = 0.15
 ALARM_DURATION = 30
@@ -173,7 +173,7 @@ def ensure_alarm_file():
 def play_alarm():
     if not IS_ANDROID:
         print("[CariHP] (simulasi) ALARM BERBUNYI!")
-        return
+        return None
 
     path = ensure_alarm_file()
 
@@ -189,16 +189,18 @@ def play_alarm():
     player.setLooping(True)
     player.prepare()
     player.start()
+    return player
 
-    def stop_player(dt):
-        try:
-            if player.isPlaying():
-                player.stop()
-            player.release()
-        except Exception:
-            pass
 
-    Clock.schedule_once(stop_player, ALARM_DURATION)
+def stop_alarm_player(player):
+    if player is None:
+        return
+    try:
+        if player.isPlaying():
+            player.stop()
+        player.release()
+    except Exception:
+        pass
 
 
 class FinderUI(BoxLayout):
@@ -206,6 +208,7 @@ class FinderUI(BoxLayout):
         super().__init__(orientation="vertical", padding=24, spacing=16, **kwargs)
         self.listener = None
         self.wake_lock = None
+        self.current_player = None
         self.threshold = DEFAULT_THRESHOLD
 
         self.status_label = Label(text="Status: berhenti", font_size="20sp", halign="center")
@@ -305,6 +308,8 @@ class FinderUI(BoxLayout):
             except Exception:
                 pass
             self.wake_lock = None
+        stop_alarm_player(self.current_player)
+        self.current_player = None
         self.status_label.text = "Status: berhenti"
         self.toggle_btn.text = "Mulai Dengarkan"
 
@@ -313,14 +318,17 @@ class FinderUI(BoxLayout):
         if self.listener:
             self.listener.suppress_until = time.time() + 5
         try:
-            play_alarm()
+            stop_alarm_player(self.current_player)
+            self.current_player = play_alarm()
             self.status_label.text = "Status: TERDETEKSI! Alarm bunyi..."
         except Exception as exc:
             self.status_label.text = f"Status: GAGAL alarm - {exc}"
-        Clock.schedule_once(
-            lambda dt: setattr(self.status_label, "text", "Status: mendengarkan..."),
-            ALARM_DURATION,
-        )
+        Clock.schedule_once(self.finish_alarm, ALARM_DURATION)
+
+    def finish_alarm(self, dt):
+        stop_alarm_player(self.current_player)
+        self.current_player = None
+        self.status_label.text = "Status: mendengarkan..." if self.listener else "Status: berhenti"
 
 
 class CariHPApp(App):
