@@ -35,7 +35,7 @@ if IS_ANDROID:
 
 
 SAMPLE_RATE = 44100
-DEFAULT_THRESHOLD = 10000
+DEFAULT_THRESHOLD = 30000
 CLAP_WINDOW = 1.5
 CLAP_DEBOUNCE = 0.15
 ALARM_DURATION = 30
@@ -230,7 +230,7 @@ class FinderUI(BoxLayout):
         self.sensitivity_label = Label(text=f"Sensitivitas: {self.threshold}")
         self.add_widget(self.sensitivity_label)
 
-        slider = Slider(min=1000, max=15000, value=self.threshold, step=500)
+        slider = Slider(min=15000, max=32000, value=self.threshold, step=500)
         slider.bind(value=self.on_slider_change)
         self.add_widget(slider)
 
