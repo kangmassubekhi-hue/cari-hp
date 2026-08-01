@@ -45,7 +45,15 @@ alarm_path = os.path.join(data_dir, "alarm_sound.wav")
 def write_status(status, overall_max, clap_count):
     try:
         with open(status_path, "w") as f:
-            json.dump({"status": status, "overall_max": overall_max, "clap_count": clap_count}, f)
+            json.dump(
+                {
+                    "status": status,
+                    "overall_max": overall_max,
+                    "clap_count": clap_count,
+                    "timestamp": time.time(),
+                },
+                f,
+            )
     except Exception:
         pass
 

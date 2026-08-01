@@ -4,6 +4,7 @@ Cari HP (Phone Finder) - Fase 2 (background service)
 
 import json
 import os
+import time
 
 from kivy.app import App
 from kivy.clock import Clock
@@ -16,6 +17,7 @@ from kivy.utils import platform
 IS_ANDROID = platform == "android"
 DEFAULT_THRESHOLD = 25000
 SERVICE_CLASS = "org.subehiahmad.phonefinder.ServiceListener"
+STALE_AFTER = 10  # detik - anggap service mati kalau gak update status selama ini
 
 if IS_ANDROID:
     from android.permissions import Permission, check_permission, request_permissions
@@ -53,6 +55,7 @@ class FinderUI(BoxLayout):
     def __init__(self, **kwargs):
         super().__init__(orientation="vertical", padding=24, spacing=16, **kwargs)
         self.running = False
+        self.stop_requested_at = 0
         self.threshold = DEFAULT_THRESHOLD
 
         self.status_label = Label(text="Status: berhenti", font_size="20sp", halign="center")
@@ -129,6 +132,7 @@ class FinderUI(BoxLayout):
                 self.status_label.text = f"Status: GAGAL start service - {exc}"
                 return
         self.running = True
+        self.stop_requested_at = 0
         self.toggle_btn.text = "Berhenti"
         self.status_label.text = "Status: menyiapkan..."
         self.peak_label.text = "Puncak tertinggi sesi ini: -"
@@ -144,6 +148,7 @@ class FinderUI(BoxLayout):
             except Exception:
                 pass
         self.running = False
+        self.stop_requested_at = time.time()
         self.toggle_btn.text = "Mulai (Background)"
         self.status_label.text = "Status: berhenti"
 
@@ -151,10 +156,22 @@ class FinderUI(BoxLayout):
         status = read_status()
         if status is None:
             return
+
+        if self.stop_requested_at and (time.time() - self.stop_requested_at) < STALE_AFTER:
+            return
+
+        ts = status.get("timestamp", 0)
+        age = time.time() - ts
+
+        if self.running and age > STALE_AFTER:
+            self.status_label.text = f"Status: service tidak merespon ({int(age)} detik lalu)"
+            return
+
         self.status_label.text = f"Status: {status.get('status', '-')}"
         self.peak_label.text = f"Puncak tertinggi sesi ini: {status.get('overall_max', 0)}"
         self.count_label.text = f"Terdeteksi: {status.get('clap_count', 0)}x"
-        if status.get("status") not in (None, "berhenti") and not self.running:
+
+        if status.get("status") not in (None, "berhenti") and not self.running and age <= STALE_AFTER:
             self.running = True
             self.toggle_btn.text = "Berhenti"
 
