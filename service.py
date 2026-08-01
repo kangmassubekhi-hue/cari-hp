@@ -26,6 +26,7 @@ NotificationChannel = autoclass("android.app.NotificationChannel")
 NotificationManager = autoclass("android.app.NotificationManager")
 BuildVersion = autoclass("android.os.Build$VERSION")
 PowerManager = autoclass("android.os.PowerManager")
+Vibrator = autoclass("android.os.Vibrator")
 
 SAMPLE_RATE = 44100
 DEFAULT_THRESHOLD = 25000
@@ -142,6 +143,7 @@ def main():
         return
 
     wake_lock = None
+    power_manager = None
     try:
         power_manager = cast(PowerManager, service.getSystemService(Context.POWER_SERVICE))
         wake_lock = power_manager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "CariHP::Service")
@@ -194,6 +196,11 @@ def main():
         if current_player is not None and alarm_started_at and (now - alarm_started_at) > ALARM_DURATION:
             stop_alarm_player(current_player)
             current_player = None
+            try:
+                vibrator = cast(Vibrator, service.getSystemService(Context.VIBRATOR_SERVICE))
+                vibrator.cancel()
+            except Exception:
+                pass
 
         if read <= 0:
             continue
@@ -223,6 +230,19 @@ def main():
                 write_status("TERDETEKSI! Alarm bunyi...", overall_max, clap_count)
                 stop_alarm_player(current_player)
                 try:
+                    screen_lock = power_manager.newWakeLock(
+                        PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                        "CariHP::ScreenWake",
+                    )
+                    screen_lock.acquire(30000)
+                except Exception:
+                    pass
+                try:
+                    vibrator = cast(Vibrator, service.getSystemService(Context.VIBRATOR_SERVICE))
+                    vibrator.vibrate([0, 600, 400], 0)
+                except Exception:
+                    pass
+                try:
                     current_player = play_alarm()
                     alarm_started_at = now
                 except Exception as exc:
@@ -235,6 +255,11 @@ def main():
     except Exception:
         pass
     stop_alarm_player(current_player)
+    try:
+        vibrator = cast(Vibrator, service.getSystemService(Context.VIBRATOR_SERVICE))
+        vibrator.cancel()
+    except Exception:
+        pass
     if wake_lock:
         try:
             wake_lock.release()
