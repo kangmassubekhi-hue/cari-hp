@@ -90,38 +90,35 @@ class FinderUI(BoxLayout):
             font_size="30sp",
             bold=True,
             color=TEXT_COLOR,
-            size_hint=(1, None),
-            height=48,
+            size_hint=(1, 0.7),
         )
         self.add_widget(title)
 
-        status_card = Card(
-            orientation="vertical", padding=18, spacing=6, size_hint=(1, None), height=110
-        )
+        status_card = Card(orientation="vertical", padding=18, spacing=6, size_hint=(1, 1.3))
         self.status_label = Label(
             text="Status: berhenti", font_size="18sp", color=TEXT_COLOR, halign="center"
         )
         self.status_label.bind(
-            width=lambda inst, w: setattr(inst, "text_size", (w * 0.95, None))
+            size=lambda inst, s: setattr(inst, "text_size", (s[0] * 0.95, s[1]))
         )
         status_card.add_widget(self.status_label)
         self.add_widget(status_card)
 
-        stats_row = BoxLayout(orientation="horizontal", spacing=14, size_hint=(1, None), height=90)
+        stats_row = BoxLayout(orientation="horizontal", spacing=14, size_hint=(1, 1.0))
 
         peak_card = Card(orientation="vertical", padding=12, size_hint=(0.5, 1))
         self.peak_label = Label(
-            text="Puncak sesi ini\n-", font_size="16sp", color=ACCENT_COLOR, halign="center"
+            text="Puncak sesi ini\n-", font_size="17sp", color=ACCENT_COLOR, halign="center"
         )
-        self.peak_label.bind(width=lambda inst, w: setattr(inst, "text_size", (w, None)))
+        self.peak_label.bind(size=lambda inst, s: setattr(inst, "text_size", s))
         peak_card.add_widget(self.peak_label)
         stats_row.add_widget(peak_card)
 
         count_card = Card(orientation="vertical", padding=12, size_hint=(0.5, 1))
         self.count_label = Label(
-            text="Terdeteksi\n0x", font_size="16sp", color=ACCENT_COLOR, halign="center"
+            text="Terdeteksi\n0x", font_size="17sp", color=ACCENT_COLOR, halign="center"
         )
-        self.count_label.bind(width=lambda inst, w: setattr(inst, "text_size", (w, None)))
+        self.count_label.bind(size=lambda inst, s: setattr(inst, "text_size", s))
         count_card.add_widget(self.count_label)
         stats_row.add_widget(count_card)
 
@@ -132,12 +129,12 @@ class FinderUI(BoxLayout):
             font_size="15sp",
             color=TEXT_COLOR,
             size_hint=(1, None),
-            height=30,
+            height=32,
         )
         self.add_widget(self.sensitivity_label)
 
         slider = Slider(
-            min=10000, max=30000, value=self.threshold, step=500, size_hint=(1, None), height=40
+            min=10000, max=30000, value=self.threshold, step=500, size_hint=(1, None), height=48
         )
         slider.bind(value=self.on_slider_change)
         self.add_widget(slider)
@@ -147,7 +144,7 @@ class FinderUI(BoxLayout):
             font_size="20sp",
             bold=True,
             size_hint=(1, None),
-            height=64,
+            height=68,
             background_normal="",
             background_color=GREEN,
             color=TEXT_COLOR,
@@ -155,19 +152,22 @@ class FinderUI(BoxLayout):
         self.toggle_btn.bind(on_release=self.on_toggle)
         self.add_widget(self.toggle_btn)
 
+        info_card = Card(orientation="vertical", padding=20, size_hint=(1, 1.4))
         info = Label(
             text=(
-                "Fase 2: jalan walau app ditutup/layar mati.\n"
-                "Kalau tetap gak kedeteksi pas ditutup, cek\n"
-                "izin Autostart & Baterai tanpa batasan di\n"
+                "Fase 2: jalan walau app ditutup/layar mati.\n\n"
+                "Kalau tetap gak kedeteksi pas ditutup, cek "
+                "izin Autostart & Baterai tanpa batasan di "
                 "pengaturan HP untuk app ini."
             ),
-            font_size="13sp",
+            font_size="14sp",
             color=MUTED_COLOR,
             halign="center",
+            valign="middle",
         )
-        info.bind(width=lambda inst, w: setattr(inst, "text_size", (w * 0.95, None)))
-        self.add_widget(info)
+        info.bind(size=lambda inst, s: setattr(inst, "text_size", (s[0] * 0.9, s[1])))
+        info_card.add_widget(info)
+        self.add_widget(info_card)
 
         Clock.schedule_interval(self.refresh_status, 1.0)
 
