@@ -8,16 +8,28 @@ import time
 
 from kivy.app import App
 from kivy.clock import Clock
+from kivy.core.window import Window
+from kivy.graphics import Color, RoundedRectangle
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.slider import Slider
-from kivy.utils import platform
+from kivy.utils import platform, get_color_from_hex
 
 IS_ANDROID = platform == "android"
 DEFAULT_THRESHOLD = 25000
 SERVICE_CLASS = "org.subehiahmad.phonefinder.ServiceListener"
-STALE_AFTER = 10  # detik - anggap service mati kalau gak update status selama ini
+STALE_AFTER = 10
+
+BG_COLOR = get_color_from_hex("#141C3A")
+CARD_COLOR = get_color_from_hex("#1B2550")
+ACCENT_COLOR = get_color_from_hex("#FF9E45")
+TEXT_COLOR = get_color_from_hex("#F4F6FB")
+MUTED_COLOR = get_color_from_hex("#9AA3C7")
+GREEN = get_color_from_hex("#3FA96A")
+RED = get_color_from_hex("#E8593F")
+
+Window.clearcolor = BG_COLOR
 
 if IS_ANDROID:
     from android.permissions import Permission, check_permission, request_permissions
@@ -51,35 +63,95 @@ def read_status():
         return None
 
 
+class Card(BoxLayout):
+    """BoxLayout dengan latar rounded-rect custom."""
+
+    def __init__(self, bg_color=CARD_COLOR, **kwargs):
+        super().__init__(**kwargs)
+        with self.canvas.before:
+            Color(*bg_color)
+            self._rect = RoundedRectangle(radius=[18], pos=self.pos, size=self.size)
+        self.bind(pos=self._update_rect, size=self._update_rect)
+
+    def _update_rect(self, *args):
+        self._rect.pos = self.pos
+        self._rect.size = self.size
+
+
 class FinderUI(BoxLayout):
     def __init__(self, **kwargs):
-        super().__init__(orientation="vertical", padding=24, spacing=16, **kwargs)
+        super().__init__(orientation="vertical", padding=28, spacing=18, **kwargs)
         self.running = False
         self.stop_requested_at = 0
         self.threshold = DEFAULT_THRESHOLD
 
-        self.status_label = Label(text="Status: berhenti", font_size="20sp", halign="center")
+        title = Label(
+            text="Cari HP",
+            font_size="30sp",
+            bold=True,
+            color=TEXT_COLOR,
+            size_hint=(1, None),
+            height=48,
+        )
+        self.add_widget(title)
+
+        status_card = Card(
+            orientation="vertical", padding=18, spacing=6, size_hint=(1, None), height=110
+        )
+        self.status_label = Label(
+            text="Status: berhenti", font_size="18sp", color=TEXT_COLOR, halign="center"
+        )
         self.status_label.bind(
-            width=lambda inst, w: setattr(inst, "text_size", (w * 0.9, None))
+            width=lambda inst, w: setattr(inst, "text_size", (w * 0.95, None))
         )
-        self.add_widget(self.status_label)
+        status_card.add_widget(self.status_label)
+        self.add_widget(status_card)
 
+        stats_row = BoxLayout(orientation="horizontal", spacing=14, size_hint=(1, None), height=90)
+
+        peak_card = Card(orientation="vertical", padding=12, size_hint=(0.5, 1))
         self.peak_label = Label(
-            text="Puncak tertinggi sesi ini: -", font_size="18sp", color=(1, 1, 0, 1)
+            text="Puncak sesi ini\n-", font_size="16sp", color=ACCENT_COLOR, halign="center"
         )
-        self.add_widget(self.peak_label)
+        self.peak_label.bind(width=lambda inst, w: setattr(inst, "text_size", (w, None)))
+        peak_card.add_widget(self.peak_label)
+        stats_row.add_widget(peak_card)
 
-        self.count_label = Label(text="Terdeteksi: 0x", font_size="18sp", color=(1, 1, 0, 1))
-        self.add_widget(self.count_label)
+        count_card = Card(orientation="vertical", padding=12, size_hint=(0.5, 1))
+        self.count_label = Label(
+            text="Terdeteksi\n0x", font_size="16sp", color=ACCENT_COLOR, halign="center"
+        )
+        self.count_label.bind(width=lambda inst, w: setattr(inst, "text_size", (w, None)))
+        count_card.add_widget(self.count_label)
+        stats_row.add_widget(count_card)
 
-        self.sensitivity_label = Label(text=f"Sensitivitas: {self.threshold}")
+        self.add_widget(stats_row)
+
+        self.sensitivity_label = Label(
+            text=f"Sensitivitas: {self.threshold}",
+            font_size="15sp",
+            color=TEXT_COLOR,
+            size_hint=(1, None),
+            height=30,
+        )
         self.add_widget(self.sensitivity_label)
 
-        slider = Slider(min=10000, max=30000, value=self.threshold, step=500)
+        slider = Slider(
+            min=10000, max=30000, value=self.threshold, step=500, size_hint=(1, None), height=40
+        )
         slider.bind(value=self.on_slider_change)
         self.add_widget(slider)
 
-        self.toggle_btn = Button(text="Mulai (Background)", font_size="22sp", size_hint=(1, 0.3))
+        self.toggle_btn = Button(
+            text="Mulai (Background)",
+            font_size="20sp",
+            bold=True,
+            size_hint=(1, None),
+            height=64,
+            background_normal="",
+            background_color=GREEN,
+            color=TEXT_COLOR,
+        )
         self.toggle_btn.bind(on_release=self.on_toggle)
         self.add_widget(self.toggle_btn)
 
@@ -90,8 +162,11 @@ class FinderUI(BoxLayout):
                 "izin Autostart & Baterai tanpa batasan di\n"
                 "pengaturan HP untuk app ini."
             ),
-            font_size="14sp",
+            font_size="13sp",
+            color=MUTED_COLOR,
+            halign="center",
         )
+        info.bind(width=lambda inst, w: setattr(inst, "text_size", (w * 0.95, None)))
         self.add_widget(info)
 
         Clock.schedule_interval(self.refresh_status, 1.0)
@@ -134,9 +209,10 @@ class FinderUI(BoxLayout):
         self.running = True
         self.stop_requested_at = 0
         self.toggle_btn.text = "Berhenti"
+        self.toggle_btn.background_color = RED
         self.status_label.text = "Status: menyiapkan..."
-        self.peak_label.text = "Puncak tertinggi sesi ini: -"
-        self.count_label.text = "Terdeteksi: 0x"
+        self.peak_label.text = "Puncak sesi ini\n-"
+        self.count_label.text = "Terdeteksi\n0x"
 
     def stop_service(self):
         write_control(self.threshold, True)
@@ -150,6 +226,7 @@ class FinderUI(BoxLayout):
         self.running = False
         self.stop_requested_at = time.time()
         self.toggle_btn.text = "Mulai (Background)"
+        self.toggle_btn.background_color = GREEN
         self.status_label.text = "Status: berhenti"
 
     def refresh_status(self, dt):
@@ -168,12 +245,13 @@ class FinderUI(BoxLayout):
             return
 
         self.status_label.text = f"Status: {status.get('status', '-')}"
-        self.peak_label.text = f"Puncak tertinggi sesi ini: {status.get('overall_max', 0)}"
-        self.count_label.text = f"Terdeteksi: {status.get('clap_count', 0)}x"
+        self.peak_label.text = f"Puncak sesi ini\n{status.get('overall_max', 0)}"
+        self.count_label.text = f"Terdeteksi\n{status.get('clap_count', 0)}x"
 
         if status.get("status") not in (None, "berhenti") and not self.running and age <= STALE_AFTER:
             self.running = True
             self.toggle_btn.text = "Berhenti"
+            self.toggle_btn.background_color = RED
 
 
 class CariHPApp(App):

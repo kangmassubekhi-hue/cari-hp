@@ -2,6 +2,7 @@
 title = Cari HP
 package.name = phonefinder
 package.domain = org.subehiahmad
+icon.filename = %(source.dir)s/icon.png
 
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
