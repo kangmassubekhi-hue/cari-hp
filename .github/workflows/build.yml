@@ -31,6 +31,11 @@ jobs:
       - name: Install Buildozer
         run: pip install "buildozer<1.6.0" cython
 
+      - name: Use fixed debug keystore
+        run: |
+          mkdir -p ~/.android
+          cp debug.keystore ~/.android/debug.keystore
+
       - name: Build APK
         run: yes | buildozer android debug
 
